@@ -1,39 +1,56 @@
-import os
-os.system("pip install js")
-from js import Response, Request
-import asyncio
+# api_echo.py - Только JSON API
+import json
+from datetime import datetime
 
-async def on_fetch(request):
+def fetch(request):
+    """Чистое JSON API эхо-сервер"""
+    
     method = request.method
     url = str(request.url)
     
-    if method == "GET":
-        return Response.new(
-            "Send POST-quest for JSON: {'text': 'Your text'}\n" +
-            "or add ?text=YourText in URL",
-            headers={"Content-Type": "text/plain; charset=utf-8"}
-        )
-    
-    if method == "POST":
-        try:
-            data = await request.json()
-            text = data.get("text", "")
-        except:
-            text = await request.text()
+    async def handle():
+        # Собираем информацию о запросе
+        request_info = {
+            "method": method,
+            "url": url,
+            "timestamp": datetime.now().isoformat(),
+            "headers": dict(request.headers)
+        }
         
-        if not text:
-            url_obj = URL.new(url)
-            text = url_obj.searchParams.get("text", "")
+        # Получаем тело запроса
+        if method in ["POST", "PUT", "PATCH"]:
+            try:
+                content_type = request.headers.get("content-type", "")
+                if "application/json" in content_type:
+                    request_info["body"] = await request.json()
+                else:
+                    request_info["body"] = await request.text()
+            except:
+                request_info["body"] = "Could not parse body"
         
-        return Response.new(
-            f"You say: {text}",
-            headers={"Content-Type": "text/plain; charset=utf-8"}
-        )
+        # Добавляем query параметры
+        request_info["query"] = dict(request.query)
+        
+        # Формируем ответ
+        response = {
+            "api": "Python Echo API",
+            "documentation": "Send any HTTP request to this endpoint",
+            "your_request": request_info,
+            "server": {
+                "platform": "Deno Deploy",
+                "language": "Python",
+                "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            }
+        }
+        
+        return {
+            "status": 200,
+            "headers": {
+                "Content-Type": "application/json; charset=utf-8",
+                "X-Echo-Server": "Python/Deno"
+            },
+            "body": json.dumps(response, indent=2, ensure_ascii=False)
+        }
     
-    return Response.new(
-        f"Method {method} Not working here!",
-        status=405
-    )
-
-def fetch(request, env):
-    return asyncio.ensure_future(on_fetch(request))
+    import asyncio
+    return asyncio.run(handle())
