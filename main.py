@@ -1,3 +1,5 @@
+import os
+os.system("pip install js")
 from js import Response, Request
 import asyncio
 
